@@ -1,0 +1,2 @@
+com.example.pleoscar.shared
+xml automotive_app_desc

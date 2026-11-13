@@ -1,0 +1,36 @@
+plugins {
+    id 'com.android.library'
+}
+android {
+    namespace 'com.example.pleoscar.shared'
+    compileSdk 37
+
+    defaultConfig {
+        minSdk 34
+        targetSdk 37
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+dependencies {
+    implementation libs.androidx.app
+    // Firebase 라이브러리 버전 관리
+    implementation platform('com.google.firebase:firebase-bom:34.4.0')
+
+    // 음악 핀 저장 및 실시간 조회
+    implementation 'com.google.firebase:firebase-firestore'
+
+    // 사용자 익명 로그인
+    implementation 'com.google.firebase:firebase-auth'
+
+    // Kotlin 코루틴과 Firebase 연동
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2'
+    // 네이버 지도 SDK
+    implementation 'com.naver.maps:map-sdk:3.23.0'
+    // 현재 위치(GPS) 조회를 위한 Google Play Services Location
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+}

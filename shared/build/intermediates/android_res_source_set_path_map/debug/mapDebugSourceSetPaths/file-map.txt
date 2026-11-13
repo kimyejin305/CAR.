@@ -1,0 +1,9 @@
+com.example.pleoscar.shared-pngs-0 C:\CAR\shared\build\generated\res\pngs\debug
+com.example.pleoscar.shared-updated_navigation_xml-1 C:\CAR\shared\build\generated\updated_navigation_xml\debug
+com.example.pleoscar.shared-mergeDebugResources-2 C:\CAR\shared\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+com.example.pleoscar.shared-mergeDebugResources-3 C:\CAR\shared\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+com.example.pleoscar.shared-debug-4 C:\CAR\shared\build\intermediates\merged_res\debug\mergeDebugResources
+com.example.pleoscar.shared-debug-5 C:\CAR\shared\build\intermediates\packaged_res\debug\packageDebugResources
+com.example.pleoscar.shared-debug-6 C:\CAR\shared\src\debug\res
+com.example.pleoscar.shared-main-7 C:\CAR\shared\src\main\res
+gradleHome-0 C:\Users\user\.gradle

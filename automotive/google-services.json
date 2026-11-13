@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "613488199354",
+    "project_id": "pleoscar",
+    "storage_bucket": "pleoscar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:613488199354:android:2a1510a8131539c9846483",
+        "android_client_info": {
+          "package_name": "com.example.pleoscar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4Af8htdq908ZmhHFofpDFNVAtb5Yqruk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
