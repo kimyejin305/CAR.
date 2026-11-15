@@ -1,7 +1,9 @@
 package com.example.pleoscar.shared
 
 import android.location.Location
+import android.util.Log
 import androidx.car.app.CarContext
+import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.CarColor
@@ -9,7 +11,10 @@ import androidx.car.app.model.Pane
 import androidx.car.app.model.PaneTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
+import androidx.lifecycle.lifecycleScope
 import com.example.pleoscar.shared.model.MusicPin
+import com.example.pleoscar.shared.repository.SoundDropRepository
+import kotlinx.coroutines.launch
 
 class PinDetailScreen(
     carContext: CarContext,
@@ -23,6 +28,8 @@ class PinDetailScreen(
     private val onDeletePin: (MusicPin) -> Unit = {},
     private val onViewLocation: (Double, Double) -> Unit = { _, _ -> }
 ) : Screen(carContext) {
+
+    private val repository = SoundDropRepository()
 
     override fun onGetTemplate(): Template {
         val distanceText = if (pin.latitude != 0.0 || pin.longitude != 0.0) {
@@ -47,7 +54,26 @@ class PinDetailScreen(
                     .build()
             )
 
-        // 1. 수집 목표 설정/해제 버튼
+        // 1. 내 수집함에 담기 버튼
+        paneBuilder.addAction(
+            Action.Builder()
+                .setTitle("📥 내 수집함에 담기")
+                .setBackgroundColor(CarColor.PRIMARY)
+                .setOnClickListener {
+                    lifecycleScope.launch {
+                        try {
+                            repository.collectMusicPin(pin)
+                            CarToast.makeText(carContext, "수집함에 성공적으로 담겼습니다!", CarToast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Log.e("PinDetail", "수집 실패", e)
+                            CarToast.makeText(carContext, "수집 실패: ${e.message}", CarToast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                .build()
+        )
+
+        // 2. 수집 목표 설정/해제 버튼
         val toggleAction = if (isCurrentlyTarget) {
             Action.Builder()
                 .setTitle("목표 선택 해제")
@@ -59,7 +85,6 @@ class PinDetailScreen(
         } else {
             Action.Builder()
                 .setTitle("🎯 수집 목표로 선택")
-                .setBackgroundColor(CarColor.PRIMARY)
                 .setOnClickListener {
                     onToggleTarget(pin)
                     screenManager.pop()
@@ -68,29 +93,27 @@ class PinDetailScreen(
         }
         paneBuilder.addAction(toggleAction)
 
-        // 2. 지도에서 위치 보기 버튼 (상세창 + 목록창 모두 닫고 지도 화면으로 복귀)
+        // 3. 지도에서 위치 보기 버튼 (🔥 pop()을 1번만 호출하여 메인 지도로 안전하게 복귀)
         if (pin.latitude != 0.0 && pin.longitude != 0.0) {
             paneBuilder.addAction(
                 Action.Builder()
                     .setTitle("📍 지도에서 위치 보기")
                     .setOnClickListener {
                         onViewLocation(pin.latitude, pin.longitude)
-                        screenManager.pop() // 상세 창 닫기
-                        screenManager.pop() // 목록 창까지 닫고 메인 지도로 복귀
+                        screenManager.pop() // 상세 창 닫기 (메인 지도로 복귀)
                     }
                     .build()
             )
         }
 
-        // 3. 핀 삭제하기 버튼 (상세창 + 목록창 모두 닫고 지도 화면으로 복귀)
+        // 4. 핀 삭제하기 버튼 (🔥 pop()을 1번만 호출하여 메인 지도로 안전하게 복귀)
         paneBuilder.addAction(
             Action.Builder()
                 .setTitle("🗑️ 핀 삭제하기")
                 .setBackgroundColor(CarColor.RED)
                 .setOnClickListener {
                     onDeletePin(pin)
-                    screenManager.pop() // 상세 창 닫기
-                    screenManager.pop() // 목록 창까지 닫고 메인 지도로 복귀
+                    screenManager.pop() // 상세 창 닫기 (메인 지도로 복귀)
                 }
                 .build()
         )

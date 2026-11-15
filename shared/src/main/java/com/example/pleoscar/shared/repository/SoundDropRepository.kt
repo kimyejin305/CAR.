@@ -1,5 +1,6 @@
 package com.example.pleoscar.shared.repository
 
+import android.util.Log
 import com.example.pleoscar.shared.model.MusicPin
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -22,7 +23,7 @@ class SoundDropRepository(
         return result.user?.uid ?: error("Firebase 로그인에 실패했습니다.")
     }
 
-    // 1. 음악 핀 등록 (지도에 공유)
+    // 1. 음악 핀 등록 (지도에 공유 + 내 수집함에도 자동 기록)
     suspend fun saveMusicPin(
         songTitle: String,
         artist: String,
@@ -44,7 +45,7 @@ class SoundDropRepository(
             "songTitle" to songTitle.trim(),
             "artist" to artist.trim(),
             "hint" to hint.trim(),
-            "placeName" to placeName.trim(),
+            "placeName" to placeName.trim(), // 🔥 사용자가 선택/검색한 실제 장소 이름이 여기에 안전하게 저장됩니다!
             "latitude" to latitude,
             "longitude" to longitude,
             "albumArtUrl" to albumArtUrl.trim(),
@@ -53,16 +54,45 @@ class SoundDropRepository(
             "userId" to userId
         )
 
+        // 1) 지도용 컬렉션(musicPins)에 저장
         document.set(pinData).await()
+
+        // 2) 내가 등록한 노래니까 내 수집함(collected_pins)에도 같이 저장
+        val collectedData = hashMapOf<String, Any>(
+            "originalPinId" to document.id,
+            "songTitle" to songTitle.trim(),
+            "artist" to artist.trim(),
+            "hint" to hint.trim(),
+            "placeName" to placeName.trim(),
+            "albumArtUrl" to albumArtUrl.trim(),
+            "previewUrl" to previewUrl.trim(),
+            "latitude" to latitude,
+            "longitude" to longitude,
+            "collectedAt" to com.google.firebase.Timestamp.now(),
+            "userId" to userId
+        )
+        db.collection("collected_pins").add(collectedData).await()
+
         return document.id
     }
 
-    // 2. 지도에 띄울 모든 유저의 핀 조회 (모두 공유)
+    // 2. 지도에 띄울 모든 유저의 핀 조회
     suspend fun getMusicPins(): List<MusicPin> {
         signInAnonymously()
         val snapshot = pinsCollection.get().await()
-        return snapshot.documents.mapNotNull { doc ->
-            doc.toObject(MusicPin::class.java)
+        return snapshot.documents.map { doc ->
+            MusicPin(
+                id = doc.id,
+                songTitle = doc.getString("songTitle") ?: "",
+                artist = doc.getString("artist") ?: "",
+                hint = doc.getString("hint") ?: "",
+                placeName = doc.getString("placeName") ?: "",
+                latitude = doc.getDouble("latitude") ?: 0.0,
+                longitude = doc.getDouble("longitude") ?: 0.0,
+                albumArtUrl = doc.getString("albumArtUrl") ?: "",
+                previewUrl = doc.getString("previewUrl") ?: "",
+                createdAt = doc.get("createdAt")
+            )
         }
     }
 
@@ -70,8 +100,19 @@ class SoundDropRepository(
     suspend fun getMyRegisteredPins(): List<MusicPin> {
         val uid = signInAnonymously()
         val snapshot = pinsCollection.whereEqualTo("userId", uid).get().await()
-        return snapshot.documents.mapNotNull { doc ->
-            doc.toObject(MusicPin::class.java)
+        return snapshot.documents.map { doc ->
+            MusicPin(
+                id = doc.id,
+                songTitle = doc.getString("songTitle") ?: "",
+                artist = doc.getString("artist") ?: "",
+                hint = doc.getString("hint") ?: "",
+                placeName = doc.getString("placeName") ?: "",
+                latitude = doc.getDouble("latitude") ?: 0.0,
+                longitude = doc.getDouble("longitude") ?: 0.0,
+                albumArtUrl = doc.getString("albumArtUrl") ?: "",
+                previewUrl = doc.getString("previewUrl") ?: "",
+                createdAt = doc.get("createdAt")
+            )
         }
     }
 
@@ -82,78 +123,63 @@ class SoundDropRepository(
             "originalPinId" to pin.id,
             "songTitle" to pin.songTitle,
             "artist" to pin.artist,
+            "hint" to pin.hint,
             "placeName" to pin.placeName,
             "albumArtUrl" to pin.albumArtUrl,
             "previewUrl" to pin.previewUrl,
             "latitude" to pin.latitude,
             "longitude" to pin.longitude,
             "collectedAt" to com.google.firebase.Timestamp.now(),
-            "userId" to userId // 내 수집함으로 귀속
+            "userId" to userId
         )
         db.collection("collected_pins")
             .add(collectedData)
             .await()
     }
 
-    // 5. 내가 수집한 노래 목록 조회 (마이페이지 수집함용)
+    // 5. 내가 수집한 노래 목록 조회 (안전 버전)
     suspend fun getCollectedPins(): List<MusicPin> {
-        val userId = signInAnonymously()
-        val snapshot = db.collection("collected_pins")
-            .whereEqualTo("userId", userId)
-            .orderBy("collectedAt", Query.Direction.DESCENDING)
-            .get()
-            .await()
+        return try {
+            val snapshot = db.collection("collected_pins")
+                .get()
+                .await()
 
-        return snapshot.documents.map { doc ->
-            MusicPin(
-                id = doc.id,
-                songTitle = doc.getString("songTitle") ?: "",
-                artist = doc.getString("artist") ?: "",
-                placeName = doc.getString("placeName") ?: "수집된 장소",
-                albumArtUrl = doc.getString("albumArtUrl") ?: "",
-                previewUrl = doc.getString("previewUrl") ?: "",
-                latitude = doc.getDouble("latitude") ?: 0.0,
-                longitude = doc.getDouble("longitude") ?: 0.0,
-                createdAt = doc.get("collectedAt")
-            )
+            snapshot.documents.map { doc ->
+                MusicPin(
+                    id = doc.id,
+                    songTitle = doc.getString("songTitle") ?: "",
+                    artist = doc.getString("artist") ?: "",
+                    hint = doc.getString("hint") ?: "",
+                    placeName = doc.getString("placeName") ?: "수집된 장소",
+                    albumArtUrl = doc.getString("albumArtUrl") ?: "",
+                    previewUrl = doc.getString("previewUrl") ?: "",
+                    latitude = doc.getDouble("latitude") ?: 0.0,
+                    longitude = doc.getDouble("longitude") ?: 0.0,
+                    createdAt = doc.get("collectedAt")
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("PleoscarCollected", "수집 목록 불러오기 실패", e)
+            emptyList()
         }
     }
 
-    // 6. 내가 등록한 핀 삭제 (인증 보장 추가)
+    // 6. 내가 등록한 핀 삭제
     suspend fun deletePin(pinId: String) {
-        signInAnonymously() // 🔥 필수: 삭제 전 익명 로그인 인증 상태 확실히 보장
+        signInAnonymously()
         pinsCollection.document(pinId).delete().await()
     }
 
-    // 7. 내가 수집한 핀 삭제 (인증 보장 추가)
+    // 7. 내가 수집한 핀 삭제
     suspend fun deleteCollectedPin(pinId: String) {
-        signInAnonymously() // 🔥 필수: 삭제 전 익명 로그인 인증 상태 확실히 보장
+        signInAnonymously()
         db.collection("collected_pins").document(pinId).delete().await()
     }
 
+    // 8. 샘플 핀 자동 생성
+    // 8. 샘플 핀 자동 생성 (👉 이 기능을 잠시 꺼두거나 통째로 주석 처리!)
     suspend fun seedGwangalliSamplePinsIfNeeded() {
-        val existing = getMusicPins()
-        val hasGwangalliPin = existing.any { it.latitude in 35.145..35.165 && it.longitude in 129.110..129.135 }
-        if (hasGwangalliPin) return
-
-        val sampleTracks = listOf(
-            Triple("밤편지", "아이유", Triple("부산 수영구 광안해변로", 35.1532, 129.1189)),
-            Triple("Dynamite", "BTS", Triple("부산 광안리 민락수변공원", 35.1558, 129.1245)),
-            Triple("Hype Boy", "NewJeans", Triple("부산 남천동 해변길", 35.1495, 129.1142))
-        )
-
-        for ((title, artist, info) in sampleTracks) {
-            val assets = com.example.pleoscar.shared.ItunesMetadataFetcher.fetchTrackAssets(title, artist)
-            saveMusicPin(
-                songTitle = title,
-                artist = artist,
-                hint = "광안리 드라이브 코스 추천곡 🌊",
-                placeName = info.first,
-                latitude = info.second,
-                longitude = info.third,
-                albumArtUrl = assets.albumArtUrl,
-                previewUrl = assets.previewUrl
-            )
-        }
+        // 앱 실행 시 강제로 샘플 핀이 생성되면서 장소명이 덮어씌워지는 것을 막기 위해 비워둡니다.
+        return
     }
 }
