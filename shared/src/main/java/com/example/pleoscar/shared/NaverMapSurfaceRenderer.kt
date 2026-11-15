@@ -86,6 +86,15 @@ class NaverMapSurfaceRenderer(
             map.moveCamera(CameraUpdate.zoomBy(zoomDelta))
         }
 
+        override fun onClick(x: Float, y: Float) {
+            val map = naverMap ?: return
+            val touchedPin = findNearestPinAtScreenPoint(map, PointF(x, y))
+            if (touchedPin != null) {
+                Log.d(TAG, "핀 터치 감지됨: ${touchedPin.songTitle} at ($x, $y)")
+                onPinClicked(touchedPin)
+            }
+        }
+
         override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
             releasePresentation()
         }
@@ -145,14 +154,12 @@ class NaverMapSurfaceRenderer(
             showMusicPins(pendingPins, targetPinKeys)
         }
 
-        // 검색 화면 등에서 돌아왔을 때 예약된 장소 좌표가 있으면 즉시 그 위치로 이동!
         val previewTarget = pendingPreviewCoord
         if (previewTarget != null) {
             lastCameraCoord = previewTarget
             map.moveCamera(CameraUpdate.scrollAndZoomTo(previewTarget, 14.0))
             pendingPreviewCoord = null
         } else if (lastCameraCoord != null) {
-            // 핀 상세 화면에서 돌아왔을 때도 직전 탐색 위치를 그대로 유지
             map.moveCamera(CameraUpdate.scrollAndZoomTo(lastCameraCoord!!, 14.0))
         }
 
@@ -166,12 +173,14 @@ class NaverMapSurfaceRenderer(
 
     private fun findNearestPinAtScreenPoint(map: NaverMap, touchPoint: PointF): MusicPin? {
         var nearest: MusicPin? = null
-        var minPixelDist = 90f
+        // 마커 아이콘의 위쪽 머리 부분을 클릭해도 잘 인식되도록 터치 허용 반경을 130px로 넉넉히 설정
+        var minPixelDist = 130f
 
         for (pin in pendingPins) {
             if (pin.latitude == 0.0 && pin.longitude == 0.0) continue
             val screenPt = map.projection.toScreenLocation(LatLng(pin.latitude, pin.longitude))
-            val dist = hypot(screenPt.x - touchPoint.x, screenPt.y - touchPoint.y)
+            // 마커는 좌표점(바닥)에서 위로 약 35px 올라와 있으므로 보정값 적용
+            val dist = hypot(screenPt.x - touchPoint.x, (screenPt.y - 35f) - touchPoint.y)
             if (dist <= minPixelDist) {
                 minPixelDist = dist
                 nearest = pin
@@ -195,9 +204,6 @@ class NaverMapSurfaceRenderer(
         virtualDisplay = null
     }
 
-    /**
-     * 내 차량 현재 위치로 카메라 이동 및 파란 점(현위치) 갱신
-     */
     fun moveCameraToLocation(latitude: Double, longitude: Double) {
         pendingPreviewCoord = null
         val coord = LatLng(latitude, longitude)
@@ -210,9 +216,6 @@ class NaverMapSurfaceRenderer(
         }
     }
 
-    /**
-     * 장소 검색("부산 광안리" 등)으로 선택한 탐색 위치로 지도 카메라 이동 (Surface 재생성 대비 예약 포함)
-     */
     fun moveCameraToPreviewLocation(latitude: Double, longitude: Double) {
         val coord = LatLng(latitude, longitude)
         pendingPreviewCoord = coord

@@ -1,73 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
-    <!-- 인터넷 및 네트워크 권한 -->
+
+    <!-- 차량용 위치 및 인터넷 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- 위치 권한 -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-    <!-- 알림 권한 -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- 위치 기반 Foreground Service 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <!-- Car App Library 지도 화면(Surface) 및 템플릿 권한 -->
-    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
-    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
-
-    <!-- It indicates that it requires a template host -->
-    <uses-feature
-        android:name="android.software.car.templates_host"
-        android:required="true" />
-    <uses-feature
-        android:name="android.hardware.type.automotive"
-        android:required="true" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
-        android:allowBackup="true"
-        android:appCategory="audio"
-        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Pleoscar">
+
+        <!-- 네이버 지도 SDK 인증 클라이언트 ID 연동 -->
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
-            android:value="i6167b3adb" />
-
-        <!-- It declares support for Android Automotive OS -->
+            android:value="@string/naver_client_id" />
+        <!-- [추가] 오토모티브 미디어 앱 서술자 연결 -->
         <meta-data
-            android:name="com.android.automotive"
+            android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <!-- An entry point for CAL Android Automotive OS app -->
+
+
+
+        <!-- 1. 메인 지도 액티비티 (shared 모듈의 패키지 경로 전체 명시) -->
         <activity
-            android:name="androidx.car.app.activity.CarAppActivity"
+            android:name="com.example.pleoscar.shared.MainMapActivity"
             android:exported="true"
             android:launchMode="singleTask">
+
+            <!-- 차량 인포테인먼트 런처 아이콘 등록 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <meta-data
-                android:name="distractionOptimized"
-                android:value="true" />
-        </activity>
-        <service
-            android:name="com.example.pleoscar.shared.CarMediaNotificationListener"
-            android:exported="true"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <!-- 차량용 네비게이션 및 뷰 인텐트 필터 -->
             <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sounddrop" android:host="map" />
+            </intent-filter>
+        </activity>
+
+        <!-- 2. 백그라운드 미디어 브라우저 서비스 -->
+        <service
+            android:name="com.example.pleoscar.shared.SoundDropMediaBrowserService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
-    </application>
 
+    </application>
 </manifest>

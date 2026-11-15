@@ -5,9 +5,11 @@ data class MusicPin(
     val songTitle: String = "",
     val artist: String = "",
     val hint: String = "",
+    val placeName: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val albumArtUrl: String = "",
     val previewUrl: String = "",
+    val userId: String = "",
     val createdAt: Any? = null
 )

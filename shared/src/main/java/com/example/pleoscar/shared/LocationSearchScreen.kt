@@ -11,6 +11,8 @@ import androidx.car.app.model.SearchTemplate
 import androidx.car.app.model.Template
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlin.math.*
+import com.example.pleoscar.shared.model.MusicPin
 
 class LocationSearchScreen(
     carContext: CarContext,
@@ -102,4 +104,33 @@ class LocationSearchScreen(
             }
         }
     }
+}
+
+
+// 두 위도/경도 간의 거리 계산 (단위: km)
+fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val earthRadius = 6371.0 // 지구 반경 (km)
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2).pow(2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+            sin(dLon / 2).pow(2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return earthRadius * c
+}
+
+// 등록 가능 여부 확인 함수
+fun canRegisterNewPin(
+    newLat: Double,
+    newLng: Double,
+    existingPins: List<MusicPin>,
+    radiusLimitKm: Double = 4.0
+): Boolean {
+    for (pin in existingPins) {
+        val distance = calculateDistance(newLat, newLng, pin.latitude, pin.longitude)
+        if (distance < radiusLimitKm) {
+            return false // 4km 반경 내에 이미 다른 핀이 존재함!
+        }
+    }
+    return true
 }

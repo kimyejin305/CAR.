@@ -19,7 +19,9 @@ class PinDetailScreen(
     private val isCurrentlyTarget: Boolean,
     private val totalTargetCount: Int,
     private val onToggleTarget: (MusicPin) -> Unit,
-    private val onClearAllTargets: () -> Unit
+    private val onClearAllTargets: () -> Unit,
+    private val onDeletePin: (MusicPin) -> Unit = {},
+    private val onViewLocation: (Double, Double) -> Unit = { _, _ -> }
 ) : Screen(carContext) {
 
     override fun onGetTemplate(): Template {
@@ -41,19 +43,11 @@ class PinDetailScreen(
                 Row.Builder()
                     .setTitle("🎵 ${pin.songTitle}")
                     .addText("아티스트: ${pin.artist.ifBlank { "알 수 없음" }}")
-                    .addText("거리 및 감지 반경: $distanceText (사방 1.5km 진입 시 알림)")
+                    .addText("거리 및 감지 반경: $distanceText (사방 2.0km 진입 시 알림)")
                     .build()
             )
 
-        if (pin.hint.isNotBlank()) {
-            paneBuilder.addRow(
-                Row.Builder()
-                    .setTitle("💬 남긴 한마디")
-                    .addText(pin.hint)
-                    .build()
-            )
-        }
-
+        // 1. 수집 목표 설정/해제 버튼
         val toggleAction = if (isCurrentlyTarget) {
             Action.Builder()
                 .setTitle("목표 선택 해제")
@@ -72,8 +66,34 @@ class PinDetailScreen(
                 }
                 .build()
         }
-
         paneBuilder.addAction(toggleAction)
+
+        // 2. 지도에서 위치 보기 버튼 (상세창 + 목록창 모두 닫고 지도 화면으로 복귀)
+        if (pin.latitude != 0.0 && pin.longitude != 0.0) {
+            paneBuilder.addAction(
+                Action.Builder()
+                    .setTitle("📍 지도에서 위치 보기")
+                    .setOnClickListener {
+                        onViewLocation(pin.latitude, pin.longitude)
+                        screenManager.pop() // 상세 창 닫기
+                        screenManager.pop() // 목록 창까지 닫고 메인 지도로 복귀
+                    }
+                    .build()
+            )
+        }
+
+        // 3. 핀 삭제하기 버튼 (상세창 + 목록창 모두 닫고 지도 화면으로 복귀)
+        paneBuilder.addAction(
+            Action.Builder()
+                .setTitle("🗑️ 핀 삭제하기")
+                .setBackgroundColor(CarColor.RED)
+                .setOnClickListener {
+                    onDeletePin(pin)
+                    screenManager.pop() // 상세 창 닫기
+                    screenManager.pop() // 목록 창까지 닫고 메인 지도로 복귀
+                }
+                .build()
+        )
 
         if (totalTargetCount > 0) {
             paneBuilder.addAction(

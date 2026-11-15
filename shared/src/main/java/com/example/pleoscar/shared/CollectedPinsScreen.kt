@@ -1,10 +1,5 @@
 package com.example.pleoscar.shared
 
-import android.app.SearchManager
-import android.content.Intent
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.provider.MediaStore
 import android.util.Log
 import androidx.car.app.CarContext
 import androidx.car.app.CarToast
@@ -14,8 +9,6 @@ import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.example.pleoscar.shared.model.MusicPin
 import com.example.pleoscar.shared.repository.SoundDropRepository
@@ -26,19 +19,14 @@ class CollectedPinsScreen(carContext: CarContext) : Screen(carContext) {
     private val repository = SoundDropRepository()
     private var collectedPins: List<MusicPin> = emptyList()
     private var isLoading: Boolean = true
-    private var mediaPlayer: MediaPlayer? = null
 
     init {
-        lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onDestroy(owner: LifecycleOwner) {
-                mediaPlayer?.release()
-                mediaPlayer = null
-            }
-        })
         loadCollectedPins()
     }
 
     private fun loadCollectedPins() {
+        isLoading = true
+        invalidate()
         lifecycleScope.launch {
             try {
                 collectedPins = repository.getCollectedPins()
@@ -53,7 +41,7 @@ class CollectedPinsScreen(carContext: CarContext) : Screen(carContext) {
 
     override fun onGetTemplate(): Template {
         val builder = ListTemplate.Builder()
-            .setTitle("🎧 내 수집 음악함 (${collectedPins.size}곡)")
+            .setTitle("🎧 내가 수집한 음악함 (${collectedPins.size}곡)")
             .setHeaderAction(Action.BACK)
 
         if (isLoading) {
@@ -63,14 +51,45 @@ class CollectedPinsScreen(carContext: CarContext) : Screen(carContext) {
         val itemListBuilder = ItemList.Builder()
             .setNoItemsMessage("아직 수집한 음악 핀이 없습니다. 주행 중 음악 존에 진입해 곡을 수집해 보세요!")
 
-        // 차량 주행 중 안전 규격에 맞춰 최대 6개 항목까지 표시
-        collectedPins.take(6).forEach { pin ->
+        collectedPins.forEach { pin ->
             itemListBuilder.addItem(
                 Row.Builder()
                     .setTitle("🎵 ${pin.songTitle}")
-                    .addText(pin.artist.ifBlank { "알 수 없는 아티스트" })
+                    .addText("가수: ${pin.artist.ifBlank { "알 수 없음" }} | 장소: ${pin.placeName}")
                     .setOnClickListener {
-                        playCollectedTrack(pin)
+                        val detailScreen = PinDetailScreen(
+                            carContext = carContext,
+                            pin = pin,
+                            currentLat = 0.0,
+                            currentLng = 0.0,
+                            isCurrentlyTarget = false,
+                            totalTargetCount = 0,
+                            onToggleTarget = { },
+                            onClearAllTargets = { },
+
+                            // 1️⃣ 삭제를 누를 때: 상세 창만 닫고 수집 목록 페이지로 돌아와서 목록 갱신
+                            onDeletePin = { targetPin ->
+                                screenManager.pop() // 상세 창 닫기 (목록 페이지로 복귀)
+
+                                lifecycleScope.launch {
+                                    try {
+                                        repository.deleteCollectedPin(targetPin.id)
+                                        CarToast.makeText(carContext, "수집함에서 삭제되었습니다.", CarToast.LENGTH_SHORT).show()
+                                        loadCollectedPins() // 목록 즉시 새로고침
+                                    } catch (e: Exception) {
+                                        Log.e("PleoscarCollected", "삭제 실패", e)
+                                        CarToast.makeText(carContext, "삭제 실패: ${e.message}", CarToast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+
+                            // 2️⃣ 위치 이동을 누를 때: 상세 창과 목록 창을 모두 닫고 곧바로 메인 지도 화면으로 복귀
+                            onViewLocation = { lat, lng ->
+                                screenManager.pop() // 상세 창 닫기
+                                screenManager.pop() // 수집 목록 창 닫기 -> 메인 지도 도달
+                            }
+                        )
+                        screenManager.push(detailScreen)
                     }
                     .build()
             )
@@ -79,56 +98,5 @@ class CollectedPinsScreen(carContext: CarContext) : Screen(carContext) {
         return builder
             .setSingleList(itemListBuilder.build())
             .build()
-    }
-
-    private fun playCollectedTrack(pin: MusicPin) {
-        if (pin.previewUrl.isNotBlank()) {
-            try {
-                mediaPlayer?.release()
-                mediaPlayer = MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .build()
-                    )
-                    setDataSource(pin.previewUrl)
-                    setOnPreparedListener { mp ->
-                        mp.start()
-                        CarToast.makeText(
-                            carContext,
-                            "▶ '${pin.songTitle} - ${pin.artist}' 재생 중",
-                            CarToast.LENGTH_SHORT
-                        ).show()
-                    }
-                    setOnCompletionListener { mp ->
-                        mp.release()
-                        if (mediaPlayer == mp) mediaPlayer = null
-                    }
-                    prepareAsync()
-                }
-                return
-            } catch (e: Exception) {
-                Log.e("PleoscarCollected", "미리듣기 재생 실패", e)
-            }
-        }
-
-        try {
-            val query = "${pin.songTitle} ${pin.artist}".trim()
-            val musicIntent = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).apply {
-                putExtra(MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/audio")
-                putExtra(MediaStore.EXTRA_MEDIA_TITLE, pin.songTitle)
-                putExtra(MediaStore.EXTRA_MEDIA_ARTIST, pin.artist)
-                putExtra(SearchManager.QUERY, query)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            carContext.startActivity(musicIntent)
-        } catch (e: Exception) {
-            CarToast.makeText(
-                carContext,
-                "재생할 외부 음악 앱이 설치되어 있지 않습니다.",
-                CarToast.LENGTH_SHORT
-            ).show()
-        }
     }
 }

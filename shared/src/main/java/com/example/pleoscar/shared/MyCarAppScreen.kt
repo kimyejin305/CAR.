@@ -144,7 +144,7 @@ class MyCarAppScreen(carContext: CarContext) : Screen(carContext) {
             IconCompat.createWithResource(carContext, android.R.drawable.ic_menu_sort_by_size)
         ).build()
 
-        // 상단 액션 바: 주행 규격(텍스트 버튼 1개 + 아이콘 버튼) 준수
+        // 상단 메인 바: [핀 등록 / 발견곡 재생] - [장소 검색] - [마이페이지(맨 오른쪽)]
         val actionStripBuilder = ActionStrip.Builder()
 
         val activePin = nearbyPin
@@ -206,7 +206,7 @@ class MyCarAppScreen(carContext: CarContext) : Screen(carContext) {
                 .build()
         )
 
-        // 내 수집 음악함(마이페이지) 아이콘 버튼 — 시속 10km 이상 주행 중일 때는 안전 잠금
+        // 내 수집 음악함(마이페이지) 아이콘 버튼 — 맨 오른쪽 위치
         actionStripBuilder.addAction(
             Action.Builder()
                 .setIcon(listIcon)
@@ -224,33 +224,9 @@ class MyCarAppScreen(carContext: CarContext) : Screen(carContext) {
                 .build()
         )
 
-        // 지도 전용 액션 바
-        val zoomInIcon = CarIcon.Builder(
-            IconCompat.createWithResource(carContext, android.R.drawable.ic_input_add)
-        ).build()
-
-        val zoomOutIcon = CarIcon.Builder(
-            IconCompat.createWithResource(carContext, android.R.drawable.ic_menu_revert)
-        ).build()
-
+        // 지도 전용 바: 규격 준수를 위해 PAN(지도 조작 모드)과 내 위치 복귀 버튼만 배치
         val mapActionStrip = ActionStrip.Builder()
             .addAction(Action.PAN)
-            .addAction(
-                Action.Builder()
-                    .setIcon(zoomInIcon)
-                    .setOnClickListener {
-                        mapRenderer.zoomIn()
-                    }
-                    .build()
-            )
-            .addAction(
-                Action.Builder()
-                    .setIcon(zoomOutIcon)
-                    .setOnClickListener {
-                        mapRenderer.zoomOut()
-                    }
-                    .build()
-            )
             .addAction(
                 Action.Builder()
                     .setIcon(locationIcon)
@@ -339,7 +315,7 @@ class MyCarAppScreen(carContext: CarContext) : Screen(carContext) {
     private fun checkNearbyMusicPins(currentLat: Double, currentLng: Double) {
         if (cachedPins.isEmpty()) return
 
-        val discoveryRadiusMeters = 1500f
+        val discoveryRadiusMeters = 2000f
         val isTargetOnlyMode = targetPinKeys.isNotEmpty()
         var closestPin: MusicPin? = null
         var minDistance = Float.MAX_VALUE

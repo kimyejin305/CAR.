@@ -57,4 +57,7 @@ dependencies {
 
     // NAVER Maps SDK
     implementation("com.naver.maps:map-sdk:3.23.0")
+    dependencies {
+        // 미디어 브라우저 및 세션 호환성 라이브러리 추가
+    }
 }
